@@ -129,6 +129,26 @@ class ReconciliationApiTest extends TransactionTestSupport {
     }
 
     @Test
+    void detailsAreCappedButMismatchCountIsExact() throws Exception {
+        for (int i = 0; i < 150; i++) {
+            jdbc.update("insert into transactions (tx_type, status, amount, created_at) "
+                    + "values ('DEPOSIT', 'COMPLETED', 1000, now())");
+        }
+
+        String body = run(adminToken).andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("MISMATCH_FOUND"))
+                .andExpect(jsonPath("$.mismatchCount").value(150))
+                .andExpect(jsonPath("$.details.length()").value(100))
+                .andReturn().getResponse().getContentAsString();
+
+        long runId = objectMapper.readTree(body).get("id").asLong();
+        String json = jdbc.queryForObject("select details_json from reconciliation_runs where id = ?", String.class, runId);
+        assertThat(objectMapper.readTree(json).size()).isEqualTo(100);
+        assertThat(((Number) jdbc.queryForObject("select mismatch_count from reconciliation_runs where id = ?",
+                Integer.class, runId)).intValue()).isEqualTo(150);
+    }
+
+    @Test
     void nonAdminIsForbidden() throws Exception {
         run(alice.token()).andExpect(status().isForbidden());
         mockMvc.perform(get("/api/admin/reconciliations").header("Authorization", "Bearer " + alice.token()))

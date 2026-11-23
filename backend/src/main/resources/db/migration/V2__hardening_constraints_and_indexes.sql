@@ -11,3 +11,7 @@ CREATE INDEX idx_transactions_from_status_type_created
 -- 계좌별 거래내역 최신순 페이징 (TransactionHistoryService)
 CREATE INDEX idx_ledger_entries_account_created_id
     ON ledger_entries (account_id, created_at DESC, id DESC);
+
+-- 대사 거래별 차변/대변 검사 조인 (ReconciliationChecker). PostgreSQL 은 FK 에 인덱스를 자동 생성하지 않는다.
+CREATE INDEX idx_ledger_entries_transaction_id
+    ON ledger_entries (transaction_id);

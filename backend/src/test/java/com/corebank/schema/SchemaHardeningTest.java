@@ -38,6 +38,11 @@ class SchemaHardeningTest {
         assertThat(indexExists("idx_ledger_entries_account_created_id")).isTrue();
     }
 
+    @Test
+    void ledgerTransactionIdIndexExistsForReconciliationJoin() {
+        assertThat(indexExists("idx_ledger_entries_transaction_id")).isTrue();
+    }
+
     private void insertAccount(String number, boolean system, long balance) {
         jdbc.update("insert into accounts (account_number, user_id, is_system, balance, status, pin_hash, "
                 + "created_at, updated_at) values (?, null, ?, ?, 'ACTIVE', 'x', now(), now())", number, system, balance);

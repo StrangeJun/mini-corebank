@@ -52,20 +52,21 @@ public class ReconciliationService {
     @Transactional(isolation = Isolation.REPEATABLE_READ)
     public ReconciliationRunResponse run(ReconciliationTriggerType triggerType, Long executedBy, String clientIp) {
         ReconciliationChecker.Result result = checker.check();
-        List<ReconciliationMismatch> mismatches = result.mismatches();
-        ReconciliationStatus status = mismatches.isEmpty() ? ReconciliationStatus.PASSED
+        List<ReconciliationMismatch> details = result.details();
+        int mismatchCount = result.mismatchCount();
+        ReconciliationStatus status = mismatchCount == 0 ? ReconciliationStatus.PASSED
                 : ReconciliationStatus.MISMATCH_FOUND;
 
         ReconciliationRun run = runRepository.save(new ReconciliationRun(triggerType, status,
-                result.checkedAccounts(), result.checkedTransactions(), mismatches.size(),
-                toJson(mismatches), executedBy, LocalDateTime.now()));
+                result.checkedAccounts(), result.checkedTransactions(), mismatchCount,
+                toJson(details), executedBy, LocalDateTime.now()));
 
         auditLogService.logInTransaction(new AuditEvent(executedBy, ACTION_RUN, "RECONCILIATION_RUN",
                 String.valueOf(run.getId()), AuditResult.SUCCESS,
-                triggerType + " reconciliation " + status + " mismatchCount=" + mismatches.size()
+                triggerType + " reconciliation " + status + " mismatchCount=" + mismatchCount
                         + " accounts=" + result.checkedAccounts() + " transactions=" + result.checkedTransactions(),
                 clientIp));
-        return toResponse(run, mismatches);
+        return toResponse(run, details);
     }
 
     @Transactional(readOnly = true)
