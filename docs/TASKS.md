@@ -29,7 +29,7 @@
 
 | ID | 작업 | 담당 | 상태 |
 |---|---|---|---|
-| T-012 | 프론트엔드 데모 웹 화면 구현 (`frontend/` React + TypeScript + Vite) → **Copilot 코드 리뷰(`T-012-review.md`) → 수정/병합 → 프론트엔드 전 파일 학습자료 생성·업데이트(`docs/study/**`)** | claude / copilot | 대기 |
+| T-012 | 프론트엔드 데모 웹 화면 구현 (`frontend/` React + TypeScript + Vite) → **Copilot 코드 리뷰(`T-012-review.md`) → 수정/병합 → 프론트엔드 전 파일 학습자료 생성·업데이트(`docs/study/**`)** | claude / copilot | 리뷰 중 |
 | T-013 | 마일스톤 3 최종 통합 QA, `README.md` 완성 및 풀스택 종합 학습자료(`docs/study/M3-fullstack-architecture.md`) 최종 업데이트 | copilot | 대기 |
 
 ## 작업 기록
@@ -49,3 +49,5 @@
 - T-011 QA: 테스트 119개, 통과 119 / 실패 0 / 발견한 문제: 없음
 - T-011R: 마일스톤 2 코드 리뷰 및 종합 학습자료 작성 완료 — 리뷰 이슈 2 MEDIUM / 1 LOW
 - T-010 리뷰 반영 수정 완료(T-010-review.md 중 PM 승인 3건): [RV-T10-01] executeOne 의 비즈니스 실패 처리 markFailed 를 markFailedSafely 로 감싸 FAILED 기록 중 일시 RuntimeException 발생 시 PENDING 유지·SKIPPED 집계 후 다음 건 계속 처리(오류 로그) / [RV-T10-02] ScheduledTransferService.MAX_BATCH_SIZE=100 — findDueIds 에 Pageable(LIMIT) 적용해 1회 실행당 오래된 순 최대 100건, Flyway V2 에 idx_scheduled_transfers_status_scheduled_id(status, scheduled_at, id) 추가 + SchemaHardeningTest 검증 / [RV-T10-05] TransactionService.executeScheduledTransfer 가 기존 SCHED-TX-{id} 거래 재사용 시 from/to 계좌·금액 일치 검증, 불일치면 INTERNAL_ERROR → 예약 FAILED(failure_reason INTERNAL_ERROR), 새 원장 기입 없음 / 변경 파일: backend/src/main/java/com/corebank/{scheduled/ScheduledTransferService.java, domain/scheduled/ScheduledTransferRepository.java, transaction/TransactionService.java}, backend/src/main/resources/db/migration/V2__hardening_constraints_and_indexes.sql, backend/src/test/java/com/corebank/{schema/SchemaHardeningTest, transaction/ScheduledTransferApiTest, transaction/ScheduledTransferFailureIsolationTest}.java / 확인: cd backend && ./gradlew test (115 passed, 예약 이체 테스트 3회 반복 통과) — 주의: V2 파일 수정이라 V2가 이미 적용된 PostgreSQL DB 는 Flyway 체크섬 불일치(repair 또는 DB 재생성 필요)
+- T-012 개발 완료: frontend/ React 18 + TS + Vite 5 데모 대시보드(인증/JWT, 계좌 개설·해지, 입금·출금·이체 UUID 멱등키·재전송 시연·한국어 에러 배너, 예약이체 등록·목록·취소, 복식부기 거래내역 필터·페이징, 내 감사로그, ADMIN 대사 실행·이력·상세/도래 예약 배치/잠금 해제/전체 감사로그) + 실제 PostgreSQL 16(Docker) 연동 E2E 검증 완료 / 변경 파일: frontend/** / 확인: cd frontend && npm install && npm run build (에러 0)
+- T-012 리뷰 반영 수정 완료(T-012-review.md 중 PM 승인 2건): [RV-T12-01] api.ts preserveMoneyLiterals — JSON.parse 전 금액 필드(balance/amount/perTxLimit/dailyLimit/balanceAfter/expected/actual/difference/creditTotal/debitTotal) 숫자 리터럴을 문자열로 보존(이스케이프된 문자열 내부는 제외), types.ts 금액 타입 Money=string, format.ts formatWon/toBigIntMoney BigInt 기반 포맷(Number 변환 없음), AccountsPanel 총잔액 합산·잔액 0원 해지 판정 BigInt 처리 / [RV-T12-02/05] App.tsx JWT 표시를 maskToken(앞 12자...뒤 8자)으로 마스킹 / 변경 파일: frontend/src/{api.ts, types.ts, format.ts, App.tsx, components/AccountsPanel.tsx, components/TransactionsPanel.tsx} / 확인: cd frontend && npm run build (에러 0) + 19자리(9223372036854775807)·2^53+1 금액 파싱 보존 스크립트 검증
