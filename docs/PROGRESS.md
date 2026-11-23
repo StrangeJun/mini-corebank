@@ -2,11 +2,9 @@
 
 - **프로젝트**: `mini-corebank` (1금융권 원화 계좌·송금 코어뱅킹 복식부기 원장 시스템)
 - **브랜치 전략**: GitHub Flow (`main` + `feat/T-xxx-*` `--no-ff` 병합 + 마일스톤 태그)
-- **현재 진행 단계**: **마일스톤 3 — `T-012` (React + TypeScript 프론트엔드 데모 대시보드) [3단계: Copilot 코드 리뷰 중]**
-- **현재 누적 통과 테스트**: **119개** (`./gradlew test`, 실패 0) + `frontend/` 빌드 에러 0 + **실제 PostgreSQL 16(Docker) 연동 E2E 검증 완료**
-- **에이전트 사용량 현황**:
-  - **Claude (`t8`)**: 5시간 한도 `50%` (잔여 50%, 1시간 35분 뒤 리셋), 30일 한도 `12%`, 컨텍스트 `13% (129K)` 유지 대기 중 (`T-012` 리뷰 후 수정 대비)
-  - **Copilot (`t11`)**: 세션 누적 `34.77 AIC used` (`mai-code-2-flash`), 현재 `T-012` 프론트엔드 코드 리뷰 수행 중
+- **현재 진행 단계**: **마일스톤 1·2·3 전체 작업(`T-001` ~ `T-013`) 100% 완료!**
+- **최종 검증 결과**: 백엔드 테스트 **119개 통과 (실패 0)** + 프론트엔드 `npm run build` 성공 (`BigInt` 19자리 원화 무오차 처리) + **실제 PostgreSQL 16(Docker) 연동 E2E 검증 완료**
+- **학습자료 및 리뷰 문서 총량**: **총 2,445줄** (전 파일 상세 해설서 `01~06`권 + 마일스톤 종합 가이드 `M1~M3` + 전체 파일 지도 `docs/study/README.md` + 코드 리뷰 보고서 7종)
 
 ---
 
@@ -15,8 +13,8 @@
 | 마일스톤 | 범위 | 상태 | 완료 Task | 태그 | 누적 테스트 |
 |---|---|---|---|---|---|
 | **M1. 코어 원장 & 안전 이체** | `T-001` ~ `T-007`, `T-007R`, `T-007R-FIX` | **완료** | 8 / 8 | `v0.1.0` | 81 passed |
-| **M2. 1금융권 실무 심화** | `T-008` ~ `T-011`, `T-011R` | **완료** | 5 / 5 (`T-008`~`T-011` QA·리뷰·학습자료 전부 완료) | 예정 `v0.2.0` | 119 passed |
-| **M3. 웹 데모 & 포트폴리오 마무리** | `T-012` ~ `T-013` | **진행 중 (`T-012` 개발 중)** | 0 / 2 | 예정 `v1.0.0` | - |
+| **M2. 1금융권 실무 심화** | `T-008` ~ `T-011`, `T-011R` | **완료** | 5 / 5 | `v0.2.0` | 119 passed |
+| **M3. 웹 데모 & 포트폴리오 마무리** | `T-012` ~ `T-013`, `T-013R` | **완료** | 3 / 3 | `v1.0.0` (대기) | 119 passed + FE build ok |
 
 ---
 
@@ -34,9 +32,9 @@
 | **T-008** | 계좌 PIN 5회 연속 오류 자동 `LOCKED` & 관리자 해제 | `feat/T-008-pin-lock` | 완료 | [T-008-review.md](reviews/T-008-review.md) | 이슈 0건(LOW 1 기각) | 완료 | [03권](study/03-account-and-transaction-files.md), [M1](study/M1-core-ledger.md) 업데이트 완료 | 90 |
 | **T-009** | 3대 불변식 원장-잔액 정합성 대사(Reconciliation) | `feat/T-009-reconciliation` | 완료 | [T-009-review.md](reviews/T-009-review.md) | V2 인덱스 + 상세 100건 상한 수정 완료 | 완료 | [04권](study/04-reconciliation-files.md), [README](study/README.md) 업데이트 완료 | 99 |
 | **T-010** | 예약 이체 등록·조회·취소 및 도래 건 멱등 스케줄러 | `feat/T-010-scheduled-transfer` | 완료 | [T-010-review.md](reviews/T-010-review.md) | 3건 보강 완료(`markFailed` 격리, 배치 100건 상한+인덱스, 기존 거래 파라미터 검증) | 완료 | [05권](study/05-scheduled-transfer-files.md), [README](study/README.md) 업데이트 완료 | 115 |
-| **T-011** | 마일스톤 2 통합 QA & 심화 종합 학습자료 | `feat/T-011-m2-qa-study` | 완료 (`119 passed`) | [M2-review.md](reviews/M2-review.md) | CRITICAL/HIGH 0건 (통과) | `T-012` 완료 직후 병합(`v0.2.0`) | [M2-banking-advanced.md](study/M2-banking-advanced.md) 완료 | 119 |
-| **T-012** | React + TypeScript (Vite) 프론트엔드 데모 대시보드 | `feat/T-012-frontend-demo` | **진행 중 (Claude)** | 대기 | 대기 | 대기 | 대기 (`06권` 프론트 전 파일 해설) | - |
-| **T-013** | 마일스톤 3 최종 통합 QA, `README.md` & 풀스택 학습자료 | 대기 | - | 대기 | 대기 | 대기 | 대기 (`M3-fullstack-architecture.md`) | - |
+| **T-011** | 마일스톤 2 통합 QA & 심화 종합 학습자료 | `feat/T-011-m2-qa-study` | 완료 (`119 passed`) | [M2-review.md](reviews/M2-review.md) | CRITICAL/HIGH 0건 (통과) | 완료 (`v0.2.0`) | [M2-banking-advanced.md](study/M2-banking-advanced.md) 완료 | 119 |
+| **T-012** | React + TypeScript (Vite) 프론트엔드 데모 대시보드 | `feat/T-012-frontend-demo` | 완료 | [T-012-review.md](reviews/T-012-review.md) | `BigInt` 19자리 금액 보존 + JWT 마스킹 반영 완료 | 완료 | [06권](study/06-frontend-files.md), [README](study/README.md) 완료 | 119 + FE ok |
+| **T-013** | 마일스톤 3 최종 통합 QA, `README.md` & 풀스택 학습자료 | `feat/T-013-final-qa-docs` | 완료 | [M3-review.md](reviews/M3-review.md) | 완료 | 완료 | [M3-fullstack-architecture.md](study/M3-fullstack-architecture.md), [README.md](../README.md) 완료 | 119 + FE ok |
 
 ---
 
@@ -46,14 +44,22 @@
 - [M1-review.md](reviews/M1-review.md): 마일스톤 1 전체 리뷰 (7건 발견 → `T-007R-FIX`로 멱등 재생 전 PIN 재검증, `ProductionSecretsGuard`, Flyway V2 `CHECK`/인덱스, UNIQUE 충돌 재시도 반영 완료)
 - [T-008-review.md](reviews/T-008-review.md): PIN 5회 오류 잠금 및 관리자 해제 리뷰 (`CRITICAL 0 / HIGH 0 / MEDIUM 0 / LOW 1` → 통과)
 - [T-009-review.md](reviews/T-009-review.md): 정합성 대사 리뷰 (`RV-T9-01` Spring 공식 `cron="-"` 사양 팩트체크로 기각, `RV-T9-02` `ledger_entries(transaction_id)` 인덱스 및 `RV-T9-04` `MAX_DETAILS=100` 상한 즉시 반영 완료)
+- [T-010-review.md](reviews/T-010-review.md): 예약 이체 리뷰 (`RV-T10-01` `markFailedSafely` 실패 격리, `RV-T10-02` `MAX_BATCH_SIZE=100` 및 복합 인덱스, `RV-T10-05` 기존 거래 파라미터 검증 즉시 반영 완료)
+- [M2-review.md](reviews/M2-review.md): 마일스톤 2 종합 리뷰 (`CRITICAL 0 / HIGH 0` → 통과)
+- [T-012-review.md](reviews/T-012-review.md): 프론트엔드 리뷰 (`RV-T12-01` `preserveMoneyLiterals` + `BigInt` 19자리 무오차 연산 및 `RV-T12-02/05` 화면 JWT 마스킹 즉시 반영 완료)
+- [M3-review.md](reviews/M3-review.md): 마일스톤 3 풀스택 종합 리뷰
 
 ### B. 학습자료 (`docs/study/`)
-- [docs/study/README.md](study/README.md): 전체 백엔드 코드 파일 1:1 클릭 지도 및 추천 학습 동선
+- [docs/study/README.md](study/README.md): 백엔드·프론트엔드 전체 코드 파일(80여 개) 1:1 클릭 지도 및 추천 학습 동선
 - [01-schema-and-domain-files.md](study/01-schema-and-domain-files.md): `application.yml`, Flyway `V1`·`V2`, `domain/**` 전 엔티티·Enum·Repository 상세 해설
 - [02-common-auth-audit-files.md](study/02-common-auth-audit-files.md): 예외 처리, 마스킹, 멱등성, Security/JWT, 감사 로그(`REQUIRED` vs `REQUIRES_NEW`), 시드 전 파일 해설
 - [03-account-and-transaction-files.md](study/03-account-and-transaction-files.md): 계좌 관리, PIN 5회 잠금(`REQUIRES_NEW` + 자기 교착 방지), 복식부기 입출금·이체, 거래내역 전 파일 해설
 - [04-reconciliation-files.md](study/04-reconciliation-files.md): 3대 불변식 원장-잔액 정합성 대사(`REPEATABLE_READ` 스냅샷 집계 SQL, 스케줄러, `MAX_DETAILS=100`) 전 파일 해설
+- [05-scheduled-transfer-files.md](study/05-scheduled-transfer-files.md): 예약 이체 상태머신, 도래 건 멱등 스케줄러, `markFailedSafely` 실패 격리 전 파일 해설
+- [06-frontend-files.md](study/06-frontend-files.md): React + TypeScript + Vite 프론트엔드 전 파일(`api.ts`, `format.ts`, `App.tsx`, 각 패널 컴포넌트) 1:1 상세 해설
 - [M1-core-ledger.md](study/M1-core-ledger.md): 마일스톤 1 핵심 아키텍처 Mermaid 다이어그램 6종 & 1금융권 기술 면접 Q&A
+- [M2-banking-advanced.md](study/M2-banking-advanced.md): 마일스톤 2 코어뱅킹 심화 Mermaid 다이어그램 4종 & 기술 면접 Q&A
+- [M3-fullstack-architecture.md](study/M3-fullstack-architecture.md): 마일스톤 3 풀스택 엔드투엔드 아키텍처, 데모 시연 가이드 & 최종 면접 치트시트
 
 ---
 

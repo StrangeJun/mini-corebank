@@ -7,6 +7,8 @@
 - [계좌·트랜잭션 계층](03-account-and-transaction-files.md): 계좌, PIN 잠금, 원장, 이체, 조회
 - [정합성 대사 계층](04-reconciliation-files.md): 3대 불변식, 대사 이력, 스케줄러
 - [예약 이체 계층](05-scheduled-transfer-files.md): PENDING 실행, 실패 격리, 멱등 스케줄러
+- [프론트엔드 계층](06-frontend-files.md): React 컴포넌트, API 클라이언트, JWT/멱등키
+- [풀스택 최종 가이드](M3-fullstack-architecture.md): 엔드투엔드 흐름과 면접 치트시트
 - [마일스톤 1 면접 요약](M1-core-ledger.md): 전체 흐름과 핵심 면접 질문
 
 ## 추천 학습 동선
@@ -39,6 +41,11 @@ backend/src/main/
     ├── scheduled/
     ├── transaction/
     └── user/
+├── frontend/
+│   ├── package.json
+│   ├── vite.config.ts
+│   ├── src/api.ts
+│   └── src/components/
 ```
 
 ## 설정과 스키마
@@ -158,3 +165,26 @@ backend/src/main/
 | [`scheduled/dto/CreateScheduledTransferRequest.java`](../../backend/src/main/java/com/corebank/scheduled/dto/CreateScheduledTransferRequest.java) | 예약 등록 요청 검증 | [05권](05-scheduled-transfer-files.md) |
 | [`scheduled/dto/ScheduledTransferResponse.java`](../../backend/src/main/java/com/corebank/scheduled/dto/ScheduledTransferResponse.java) | 예약 상태 응답 | [05권](05-scheduled-transfer-files.md) |
 | [`scheduled/dto/ScheduledExecutionSummary.java`](../../backend/src/main/java/com/corebank/scheduled/dto/ScheduledExecutionSummary.java) | 배치 실행 요약 | [05권](05-scheduled-transfer-files.md) |
+
+## 프론트엔드 계층
+
+| 파일 | 역할 | 상세 문서 |
+|---|---|---|
+| [`frontend/vite.config.ts`](../../frontend/vite.config.ts) | Vite 포트/프록시 설정 | [06권](06-frontend-files.md) |
+| [`frontend/package.json`](../../frontend/package.json) | React/Vite 빌드 의존성 | [06권](06-frontend-files.md) |
+| [`frontend/.env.example`](../../frontend/.env.example) | API 프록시 환경 예시 | [06권](06-frontend-files.md) |
+| [`frontend/src/api.ts`](../../frontend/src/api.ts) | Fetch API, JWT, 멱등키 헤더 | [06권](06-frontend-files.md) |
+| [`frontend/src/types.ts`](../../frontend/src/types.ts) | 백엔드 DTO 대응 타입 | [06권](06-frontend-files.md) |
+| [`frontend/src/App.tsx`](../../frontend/src/App.tsx) | 인증 상태와 탭 조립 | [06권](06-frontend-files.md) |
+| [`frontend/src/main.tsx`](../../frontend/src/main.tsx) | React 마운트 진입점 | [06권](06-frontend-files.md) |
+| [`frontend/src/format.ts`](../../frontend/src/format.ts) | 원화 포맷과 오류 코드 변환 | [06권](06-frontend-files.md) |
+| [`frontend/src/components/AuthScreen.tsx`](../../frontend/src/components/AuthScreen.tsx) | 로그인/회원가입 화면 | [06권](06-frontend-files.md) |
+| [`frontend/src/components/AccountsPanel.tsx`](../../frontend/src/components/AccountsPanel.tsx) | 계좌 목록/개설/해지 | [06권](06-frontend-files.md) |
+| [`frontend/src/components/TransactionsPanel.tsx`](../../frontend/src/components/TransactionsPanel.tsx) | 입금/출금/즉시 이체 | [06권](06-frontend-files.md) |
+| [`frontend/src/components/ScheduledPanel.tsx`](../../frontend/src/components/ScheduledPanel.tsx) | 예약 이체 등록/조회/취소 | [06권](06-frontend-files.md) |
+| [`frontend/src/components/HistoryPanel.tsx`](../../frontend/src/components/HistoryPanel.tsx) | 거래내역 필터/페이징 | [06권](06-frontend-files.md) |
+| [`frontend/src/components/AdminPanel.tsx`](../../frontend/src/components/AdminPanel.tsx) | 대사/도래 실행/잠금 해제/전체 감사 | [06권](06-frontend-files.md) |
+| [`frontend/src/components/AuditTable.tsx`](../../frontend/src/components/AuditTable.tsx) | 감사 로그 공용 테이블 | [06권](06-frontend-files.md) |
+| [`frontend/src/components/MyAuditPanel.tsx`](../../frontend/src/components/MyAuditPanel.tsx) | 본인 감사 로그 | [06권](06-frontend-files.md) |
+| [`frontend/src/components/common.tsx`](../../frontend/src/components/common.tsx) | 공통 UI와 멱등키 훅 | [06권](06-frontend-files.md) |
+| [`frontend/src/styles.css`](../../frontend/src/styles.css) | 대시보드 스타일 | [06권](06-frontend-files.md) |
