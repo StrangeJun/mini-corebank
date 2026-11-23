@@ -13,6 +13,7 @@
 | T-005 | 복식부기 원장 기반 입금·출금·즉시 이체 구현 (차변/대변 2줄 분개, 계좌 ID 정렬 비관적 락 데드락 방지, 1회/1일 한도 검증, `Idempotency-Key` 적용) | claude | 개발 완료 |
 | T-006 | 거래내역 조회 및 감사 로그 조회 API 구현 (기간/유형 필터, 페이징, 계좌번호 마스킹 응답) | claude | 개발 완료 |
 | T-007 | 마일스톤 1 QA — 코어 원장·입출금·이체·동시성·멱등성·권한·경계값(0원/음수/잔액부족/한도초과)·로그 마스킹 테스트 작성 및 실행 (`tests/backend`) | copilot | QA 완료 |
+| T-007R | 마일스톤 1 코드 리뷰(`docs/reviews/M1-review.md`) 및 한눈에 보는 학습 자료(`docs/study/M1-core-ledger.md`) 작성 | copilot | QA 완료 |
 
 ## 마일스톤 2 — 1금융권 실무 심화 기능
 
@@ -22,6 +23,7 @@
 | T-009 | 원장-잔액 정합성 대사(Reconciliation) 구현 (3대 불변식 검증: 거래별 대차 일치, 계좌 잔액=원장 합계, 전체 Zero-Sum 일치 + 이력 저장/조회 API) | claude | 대기 |
 | T-010 | 예약 이체(Scheduled Transfer) 구현 (등록 시 PIN 검증, 조회·취소 API, 스케줄러 도래 건 멱등 실행 및 잔액/한도/상태 재검증·실패 사유 기록) | claude | 대기 |
 | T-011 | 마일스톤 2 QA — PIN 5회 오류 잠금/해제, 정합성 대사(정상/불일치 탐지), 예약 이체(성공/잔액부족 실패/중복 실행 방지) 테스트 작성 및 실행 | copilot | 대기 |
+| T-011R | 마일스톤 2 코드 리뷰(`docs/reviews/M2-review.md`) 및 한눈에 보는 학습 자료(`docs/study/M2-banking-advanced.md`) 작성 | copilot | 대기 |
 
 ## 마일스톤 3 — 데모용 웹 화면 & 포트폴리오 마무리
 
@@ -29,6 +31,7 @@
 |---|---|---|---|
 | T-012 | 프론트엔드 데모 웹 화면 구현 (`frontend/` React + TypeScript + Vite: 로그인/회원가입, 계좌 개설·조회, 입출금·즉시이체·예약이체, 거래내역, 관리자 대사/감사로그/잠금해제) | claude | 대기 |
 | T-013 | 마일스톤 3 QA & 포트폴리오 문서화 — 전체 통합 테스트 점검 및 `README.md`(아키텍처, 복식부기·동시성·대사 설계, 실행 가이드) 작성 | copilot | 대기 |
+| T-013R | 마일스톤 3 코드 리뷰(`docs/reviews/M3-review.md`) 및 한눈에 보는 학습 자료(`docs/study/M3-fullstack-architecture.md`) 작성 | copilot | 대기 |
 
 ## 작업 기록
 - T-001 개발 완료: Spring Boot 3.3.4/Java 17/Gradle 8.14.3 wrapper 백엔드, docker-compose(PostgreSQL 16), Flyway V1 8개 테이블, JPA 엔티티·enum·리포지토리(com.corebank.domain.*), H2(PostgreSQL 모드) test 프로필, tests/backend 소스셋 연동 + 컨텍스트/매핑 테스트 2건 / 변경 파일: docker-compose.yml, backend/(build.gradle, settings.gradle, gradlew*, gradle/, .gitignore, src/main/java/com/corebank/**, src/main/resources/application.yml, db/migration/V1__init_schema.sql, src/test/resources/application-test.yml), tests/backend/com/corebank/CorebankApplicationContextTest.java / 확인: cd backend && ./gradlew test (2 passed) — 실제 PostgreSQL 기동 검증은 Docker 데몬 미실행으로 미수행
@@ -38,3 +41,4 @@
 - T-005 개발 완료: POST /api/transactions/{deposit,withdraw,transfer} — BigDecimal scale 0·양수·19자리 검증(INVALID_AMOUNT), 계좌 id 오름차순 PESSIMISTIC_WRITE 잠금(SYSTEM-VAULT 포함, 잠금 전 엔티티 미적재), 거래당 ledger_entries DEBIT/CREDIT 2줄+balance_after, 1회/1일(당일 완료 출금+이체 합) 한도·잔액·상태·소유권·PIN 검증, Idempotency-Key 필수(잠금 전후 2회 재생 확인, PIN 제외 SHA-256, 실패 시 키 미소비), 성공 logInTransaction/실패 logIndependent(계좌번호 마스킹) / 변경 파일: backend/src/main/java/com/corebank/{transaction/**, domain/account/Account.java, domain/account/AccountRepository.java, domain/transaction/TransactionRepository.java}, backend/src/test/java/com/corebank/transaction/*, src/test/resources/application-test.yml(H2 LOCK_TIMEOUT=10000) / 확인: cd backend && ./gradlew test (58 passed, 동시성 테스트 3회 반복 통과)
 - T-006 개발 완료: GET /api/accounts/{id}/transactions(본인/ADMIN, ledger_entries+transactions 조인, type/entryType/fromDate/toDate 필터, createdAt·id DESC 페이징 size≤100, 상대계좌 마스킹), GET /api/audit-logs/me(본인 최신순 페이징), GET /api/admin/audit-logs(ADMIN, actionType/result/actorUserId 필터, 응답 직전 재마스킹), 공통 PageResponse/PageParams, AccountService.findReadable 추출 / 변경 파일: backend/src/main/java/com/corebank/{common/PageResponse.java, common/PageParams.java, audit/AuditLogController.java, audit/AuditLogQueryService.java, audit/dto/AuditLogResponse.java, transaction/TransactionHistory*.java, transaction/dto/TransactionHistoryItem.java, account/AccountService.java, domain/audit/AuditLogRepository.java}, backend/src/test/java/com/corebank/transaction/HistoryAndAuditQueryApiTest.java / 확인: cd backend && ./gradlew test (64 passed)
 - T-007 QA: 테스트 68개, 통과 68 / 실패 0 / 발견한 문제: 없음
+- T-007R QA: 코드 리뷰 이슈 7건 발견(CRITICAL 1 / HIGH 2 / MEDIUM 3 / LOW 1), 문서 2건 작성 완료
