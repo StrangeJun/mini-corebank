@@ -64,12 +64,18 @@ public class AccountService {
 
     @Transactional(readOnly = true)
     public AccountResponse get(AuthUser user, Long accountId) {
+        return AccountResponse.from(findReadable(user, accountId));
+    }
+
+    /** 본인 계좌 또는 ADMIN 만 조회 가능. 없으면 404, 타인 계좌면 403. */
+    @Transactional(readOnly = true)
+    public Account findReadable(AuthUser user, Long accountId) {
         Account account = accountRepository.findById(accountId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.ACCOUNT_NOT_FOUND));
         if (!account.isOwnedBy(user.userId()) && user.role() != UserRole.ADMIN) {
             throw new BusinessException(ErrorCode.FORBIDDEN_ACCOUNT_ACCESS);
         }
-        return AccountResponse.from(account);
+        return account;
     }
 
     /** 행 잠금 후 검증해 해지 도중 입금 등으로 잔액이 바뀌는 경합을 막는다. */
