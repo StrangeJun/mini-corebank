@@ -5,6 +5,7 @@
 - [스키마와 도메인 계층](01-schema-and-domain-files.md): 설정, DB 마이그레이션, Entity/Repository
 - [공통·인증·감사 계층](02-common-auth-audit-files.md): 예외, 멱등성, JWT, 감사, 시드
 - [계좌·트랜잭션 계층](03-account-and-transaction-files.md): 계좌, PIN 잠금, 원장, 이체, 조회
+- [정합성 대사 계층](04-reconciliation-files.md): 3대 불변식, 대사 이력, 스케줄러
 - [마일스톤 1 면접 요약](M1-core-ledger.md): 전체 흐름과 핵심 면접 질문
 
 ## 추천 학습 동선
@@ -32,6 +33,7 @@ backend/src/main/
     ├── common/
     ├── config/
     ├── domain/
+    ├── reconciliation/
     ├── seed/
     ├── transaction/
     └── user/
@@ -129,3 +131,16 @@ backend/src/main/
 | [`transaction/dto/TransferRequest.java`](../../backend/src/main/java/com/corebank/transaction/dto/TransferRequest.java) | 이체 요청 DTO | [03권](03-account-and-transaction-files.md) |
 | [`transaction/dto/TransactionResponse.java`](../../backend/src/main/java/com/corebank/transaction/dto/TransactionResponse.java) | 거래 응답 DTO | [03권](03-account-and-transaction-files.md) |
 | [`transaction/dto/TransactionHistoryItem.java`](../../backend/src/main/java/com/corebank/transaction/dto/TransactionHistoryItem.java) | 거래내역 항목 DTO | [03권](03-account-and-transaction-files.md) |
+
+## 정합성 대사 계층
+
+| 파일 | 역할 | 상세 문서 |
+|---|---|---|
+| [`reconciliation/ReconciliationChecker.java`](../../backend/src/main/java/com/corebank/reconciliation/ReconciliationChecker.java) | 3대 불변식 집계와 불일치 상한 | [04권](04-reconciliation-files.md) |
+| [`reconciliation/ReconciliationService.java`](../../backend/src/main/java/com/corebank/reconciliation/ReconciliationService.java) | 대사 실행/이력 저장/조회 | [04권](04-reconciliation-files.md) |
+| [`reconciliation/ReconciliationController.java`](../../backend/src/main/java/com/corebank/reconciliation/ReconciliationController.java) | 관리자 대사 실행/목록/상세 API | [04권](04-reconciliation-files.md) |
+| [`reconciliation/ReconciliationScheduler.java`](../../backend/src/main/java/com/corebank/reconciliation/ReconciliationScheduler.java) | 정기 대사 스케줄러 | [04권](04-reconciliation-files.md) |
+| [`config/SchedulingConfig.java`](../../backend/src/main/java/com/corebank/config/SchedulingConfig.java) | Spring Scheduling 활성화 | [04권](04-reconciliation-files.md) |
+| [`reconciliation/dto/ReconciliationMismatch.java`](../../backend/src/main/java/com/corebank/reconciliation/dto/ReconciliationMismatch.java) | 불일치 상세 DTO | [04권](04-reconciliation-files.md) |
+| [`reconciliation/dto/ReconciliationRunResponse.java`](../../backend/src/main/java/com/corebank/reconciliation/dto/ReconciliationRunResponse.java) | 대사 실행 상세 응답 | [04권](04-reconciliation-files.md) |
+| [`reconciliation/dto/ReconciliationRunSummary.java`](../../backend/src/main/java/com/corebank/reconciliation/dto/ReconciliationRunSummary.java) | 대사 이력 목록 요약 | [04권](04-reconciliation-files.md) |

@@ -15,3 +15,7 @@ CREATE INDEX idx_ledger_entries_account_created_id
 -- 대사 거래별 차변/대변 검사 조인 (ReconciliationChecker). PostgreSQL 은 FK 에 인덱스를 자동 생성하지 않는다.
 CREATE INDEX idx_ledger_entries_transaction_id
     ON ledger_entries (transaction_id);
+
+-- 도래 예약 이체 조회 (ScheduledTransferRepository.findDueIds: status = PENDING, scheduled_at <= now, 정렬 scheduled_at, id)
+CREATE INDEX idx_scheduled_transfers_status_scheduled_id
+    ON scheduled_transfers (status, scheduled_at, id);

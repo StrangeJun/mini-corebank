@@ -37,8 +37,11 @@ import java.util.TreeSet;
 import java.util.Arrays;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 
@@ -61,6 +64,8 @@ import org.springframework.transaction.support.TransactionTemplate;
  */
 @Service
 public class TransactionService {
+
+    private static final Logger log = LoggerFactory.getLogger(TransactionService.class);
 
     static final String ENDPOINT_DEPOSIT = "POST /api/transactions/deposit";
     static final String ENDPOINT_WITHDRAW = "POST /api/transactions/withdraw";
@@ -171,6 +176,45 @@ public class TransactionService {
         });
     }
 
+    /**
+     * 예약 이체 실행용 이체. 호출자 트랜잭션(예약 이체 행 잠금을 쥔 상태) 안에서만 실행된다.
+     * <p>PIN 은 등록 시 검증했으므로 다시 묻지 않는다. 실행 시점의 상태·소유권·한도·잔액은 즉시 이체와 같은 규칙으로
+     * 재검증한다. 같은 내부 멱등키({@code SCHED-TX-{id}})의 거래가 이미 있으면 새로 기입하지 않고 그 거래를 돌려주되,
+     * 그 거래의 출금·입금 계좌와 금액이 예약과 정확히 일치할 때만 재사용한다 (불일치면 INTERNAL_ERROR — 예약을
+     * 엉뚱한 거래로 COMPLETED 처리하지 않는다).
+     *
+     * @throws BusinessException 검증 실패 (호출자 트랜잭션은 롤백돼야 한다)
+     */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public Transaction executeScheduledTransfer(Long userId, Long fromAccountId, Long toAccountId, BigDecimal amount,
+                                                String internalKey, String description) {
+        Optional<Transaction> existing = transactionRepository.findByIdempotencyKey(internalKey);
+        if (existing.isPresent()) {
+            Transaction tx = existing.get();
+            if (!fromAccountId.equals(tx.getFromAccountId()) || !toAccountId.equals(tx.getToAccountId())
+                    || tx.getAmount() == null || tx.getAmount().compareTo(amount) != 0) {
+                log.error("예약 이체 내부 멱등키 거래 불일치: key={}, transactionId={}", internalKey, tx.getId());
+                throw new BusinessException(ErrorCode.INTERNAL_ERROR);
+            }
+            return tx;
+        }
+        Map<Long, Account> locked = lockInOrder(fromAccountId, toAccountId);
+        Account from = requireAccount(locked, fromAccountId);
+        Account to = requireAccount(locked, toAccountId);
+        if (to.isSystem()) {
+            throw new BusinessException(ErrorCode.ACCOUNT_NOT_FOUND);
+        }
+        requireOwner(from, userId);
+        requireActive(from);
+        requireActive(to);
+        requireWithinLimitsAndBalance(from, amount);
+
+        Transaction tx = post(TransactionType.TRANSFER, from, to, amount, internalKey, description);
+        auditSuccess(userId, tx, "SCHEDULED TRANSFER " + amount.toPlainString() + " from " + mask(from)
+                + " to " + mask(to), null);
+        return tx;
+    }
+
     // ---------------------------------------------------------------- 원장 기입
 
     /** 거래 헤더 1건 + DEBIT/CREDIT 분개 2건. balance_after 는 각 분개 반영 직후 잔액. */
@@ -217,7 +261,7 @@ public class TransactionService {
 
     // ---------------------------------------------------------------- 검증
 
-    static BigDecimal validAmount(BigDecimal amount) {
+    public static BigDecimal validAmount(BigDecimal amount) {
         if (amount == null || amount.scale() > 0 || amount.signum() <= 0
                 || amount.precision() - amount.scale() > MAX_AMOUNT_DIGITS) {
             throw new BusinessException(ErrorCode.INVALID_AMOUNT);
