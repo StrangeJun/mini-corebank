@@ -13,3 +13,6 @@ spring:
 corebank:
   jwt:
     secret: gqIWR7DLy8FN6RBM+zvy+OyR1cJNkafKzRUFg5GThx9VWq0CHgPQaj8ZU6ka3uwa
+  reconciliation:
+    # 테스트 중 스케줄러 자동 실행 방지 (진입점은 테스트에서 직접 호출)
+    cron: "-"
