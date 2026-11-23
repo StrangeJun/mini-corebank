@@ -38,6 +38,21 @@ class SystemSeedInitializerTest {
         assertThat(passwordEncoder.matches("Admin1234!", admin.getPasswordHash())).isTrue();
     }
 
+    /** 다중 인스턴스 레이스: 존재 확인 뒤 다른 인스턴스가 먼저 INSERT 한 경우를 직접 재현한다. */
+    @Test
+    void insertRaceOnUniqueConstraintIsTreatedAsAlreadySeeded() {
+        long accounts = accountRepository.count();
+        long users = userRepository.count();
+
+        org.assertj.core.api.Assertions.assertThatCode(() -> {
+            initializer.insertSystemVault();
+            initializer.insertAdmin();
+        }).doesNotThrowAnyException();
+
+        assertThat(accountRepository.count()).isEqualTo(accounts);
+        assertThat(userRepository.count()).isEqualTo(users);
+    }
+
     @Test
     void rerunIsIdempotent() {
         long accounts = accountRepository.count();

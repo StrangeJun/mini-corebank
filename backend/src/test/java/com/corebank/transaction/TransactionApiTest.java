@@ -242,6 +242,34 @@ class TransactionApiTest extends TransactionTestSupport {
     }
 
     @Test
+    void withdrawReplayWithWrongPinIsRejected() throws Exception {
+        deposit(alice, aliceAcc, "5000");
+        String ok = "{\"accountId\":" + aliceAcc + ",\"amount\":1000,\"pin\":\"1234\"}";
+        String wrongPin = "{\"accountId\":" + aliceAcc + ",\"amount\":1000,\"pin\":\"9999\"}";
+        call("withdraw", alice, "replay-pin-w", ok).andExpect(status().isOk());
+
+        call("withdraw", alice, "replay-pin-w", wrongPin)
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("INVALID_PIN"));
+        // 올바른 PIN 재요청은 여전히 재생된다
+        call("withdraw", alice, "replay-pin-w", ok).andExpect(status().isOk());
+        assertThat(balance(aliceAcc)).isEqualByComparingTo("4000");
+    }
+
+    @Test
+    void transferReplayWithWrongPinIsRejected() throws Exception {
+        deposit(alice, aliceAcc, "5000");
+        String ok = "{\"fromAccountId\":" + aliceAcc + ",\"toAccountNumber\":\"" + bobNo + "\",\"amount\":1000,\"pin\":\"1234\"}";
+        String wrongPin = ok.replace("\"1234\"", "\"9999\"");
+        call("transfer", alice, "replay-pin-t", ok).andExpect(status().isOk());
+
+        call("transfer", alice, "replay-pin-t", wrongPin)
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("INVALID_PIN"));
+        assertThat(balance(bobAcc)).isEqualByComparingTo("1000");
+    }
+
+    @Test
     void failedRequestDoesNotConsumeKey() throws Exception {
         String body = "{\"accountId\":" + aliceAcc + ",\"amount\":1000,\"pin\":\"1234\"}";
         call("withdraw", alice, "retry-1", body).andExpect(jsonPath("$.code").value("INSUFFICIENT_BALANCE"));
