@@ -74,6 +74,16 @@ public class Account {
         return this.userId != null && this.userId.equals(userId);
     }
 
+    /** 차변 기입: 잔액 감소. 잔액 부족 검증은 서비스에서 한다 (SYSTEM-VAULT 는 음수가 될 수 있다). */
+    public void debit(BigDecimal amount) {
+        this.balance = this.balance.subtract(amount);
+    }
+
+    /** 대변 기입: 잔액 증가. */
+    public void credit(BigDecimal amount) {
+        this.balance = this.balance.add(amount);
+    }
+
     /** 상태 전환만 담당한다. 잔액·소유권 검증은 서비스에서 한다. */
     public void close() {
         this.status = AccountStatus.CLOSED;
