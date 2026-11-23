@@ -1,0 +1,5 @@
+.DS_Store
+.gjc/
+
+backend/.gradle/
+backend/build/
