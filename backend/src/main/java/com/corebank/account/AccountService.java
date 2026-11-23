@@ -1,6 +1,7 @@
 package com.corebank.account;
 
 import com.corebank.account.dto.AccountResponse;
+import com.corebank.account.dto.AccountUnlockResponse;
 import com.corebank.account.dto.CreateAccountRequest;
 import com.corebank.audit.AuditEvent;
 import com.corebank.audit.AuditLogService;
@@ -30,6 +31,8 @@ public class AccountService {
     static final String ACTION_CLOSE = "ACCOUNT_CLOSE";
     private static final String TARGET_ACCOUNT = "ACCOUNT";
     private static final int MAX_NUMBER_ATTEMPTS = 10;
+
+    private static final String ACTION_UNLOCK = "ACCOUNT_UNLOCKED";
 
     private final AccountRepository accountRepository;
     private final AccountNumberGenerator numberGenerator;
@@ -131,4 +134,23 @@ public class AccountService {
         return AccountResponse.from(account);
     }
 
+    /** 관리자 잠금 해제: ACTIVE 복귀 + pin_fail_count 0. 해지 계좌는 되살리지 않는다. 권한은 /api/admin/** 에서 검증. */
+    @Transactional
+    public AccountUnlockResponse unlock(Long adminUserId, Long accountId, String clientIp) {
+        Account account = accountRepository.findByIdForUpdate(accountId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.ACCOUNT_NOT_FOUND));
+        if (account.getStatus() == AccountStatus.CLOSED) {
+            throw new BusinessException(ErrorCode.ACCOUNT_CLOSED);
+        }
+        AccountStatus before = account.getStatus();
+        int failuresBefore = account.getPinFailCount();
+
+        account.unlock();
+        accountRepository.flush();
+        auditLogService.logInTransaction(new AuditEvent(
+                adminUserId, ACTION_UNLOCK, TARGET_ACCOUNT, String.valueOf(account.getId()), AuditResult.SUCCESS,
+                "account unlocked " + MaskingUtil.maskAccountNumber(account.getAccountNumber()) + " (was " + before
+                        + ", pinFailCount " + failuresBefore + ")", clientIp));
+        return AccountUnlockResponse.from(account);
+    }
 }

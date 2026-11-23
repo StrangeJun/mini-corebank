@@ -1,5 +1,6 @@
 package com.corebank.transaction;
 
+import com.corebank.account.AccountPinVerificationService;
 import com.corebank.audit.AuditEvent;
 import com.corebank.audit.AuditLogService;
 import com.corebank.common.exception.BusinessException;
@@ -36,9 +37,10 @@ import java.util.TreeSet;
 import java.util.Arrays;
 import java.util.function.Function;
 import java.util.function.Supplier;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * 복식부기 원장 기반 입금·출금·이체.
@@ -52,6 +54,10 @@ import org.springframework.transaction.annotation.Transactional;
  *   <li>transactions 1건 + ledger_entries 2건(DEBIT/CREDIT) + 잔액 갱신 + 멱등 응답 저장 + 감사 로그</li>
  * </ol>
  * 비즈니스 실패는 별도 트랜잭션 감사 로그를 남기고 전체 롤백된다 (멱등키도 소비되지 않음).
+ *
+ * <p>출금·이체는 위 트랜잭션에 들어가기 <b>전에</b> {@link AccountPinVerificationService} 로 PIN 을 검증한다.
+ * PIN 실패 집계·잠금은 본 거래 롤백과 무관하게 커밋돼야 하고, 본 거래가 출금 계좌 행 잠금을 쥔 채
+ * REQUIRES_NEW 로 같은 행을 잠그면 자기 교착이 되므로 순서를 분리했다. 멱등 재생도 이 검증을 통과해야 한다.
  */
 @Service
 public class TransactionService {
@@ -61,7 +67,6 @@ public class TransactionService {
     static final String ENDPOINT_TRANSFER = "POST /api/transactions/transfer";
     private static final String TARGET_TRANSACTION = "TRANSACTION";
     private static final int MAX_AMOUNT_DIGITS = 19;
-    private static final Runnable NO_REPLAY_GUARD = () -> { };
     private static final EnumSet<TransactionType> OUTGOING_TYPES =
             EnumSet.of(TransactionType.WITHDRAWAL, TransactionType.TRANSFER);
 
@@ -70,19 +75,21 @@ public class TransactionService {
     private final LedgerEntryRepository ledgerEntryRepository;
     private final IdempotencyService idempotencyService;
     private final AuditLogService auditLogService;
-    private final PasswordEncoder passwordEncoder;
+    private final AccountPinVerificationService pinVerificationService;
+    private final TransactionTemplate transactionTemplate;
     private final ObjectMapper objectMapper;
 
     public TransactionService(AccountRepository accountRepository, TransactionRepository transactionRepository,
                               LedgerEntryRepository ledgerEntryRepository, IdempotencyService idempotencyService,
-                              AuditLogService auditLogService, PasswordEncoder passwordEncoder,
-                              ObjectMapper objectMapper) {
+                              AuditLogService auditLogService, AccountPinVerificationService pinVerificationService,
+                              PlatformTransactionManager transactionManager, ObjectMapper objectMapper) {
         this.accountRepository = accountRepository;
         this.transactionRepository = transactionRepository;
         this.ledgerEntryRepository = ledgerEntryRepository;
         this.idempotencyService = idempotencyService;
         this.auditLogService = auditLogService;
-        this.passwordEncoder = passwordEncoder;
+        this.pinVerificationService = pinVerificationService;
+        this.transactionTemplate = new TransactionTemplate(transactionManager);
         this.objectMapper = objectMapper;
     }
 
@@ -91,7 +98,7 @@ public class TransactionService {
         return audited(userId, TransactionType.DEPOSIT, req.accountId(), clientIp, () -> {
             BigDecimal amount = validAmount(req.amount());
             String hash = hash(ENDPOINT_DEPOSIT, req.accountId(), null, null, amount, req.description());
-            return idempotent(idempotencyKey, userId, ENDPOINT_DEPOSIT, hash, NO_REPLAY_GUARD,
+            return idempotent(idempotencyKey, userId, ENDPOINT_DEPOSIT, hash,
                     () -> lockInOrder(req.accountId(), vaultId()), locked -> {
                 Account customer = requireAccount(locked, req.accountId());
                 Account vault = locked.get(vaultId());
@@ -107,31 +114,31 @@ public class TransactionService {
         });
     }
 
-    @Transactional
+    /** 트랜잭션 경계는 메서드 안에서 연다 (PIN 검증을 본 트랜잭션 밖에서 먼저 커밋하기 위해). */
     public TransactionResponse withdraw(Long userId, String idempotencyKey, WithdrawRequest req, String clientIp) {
         return audited(userId, TransactionType.WITHDRAWAL, req.accountId(), clientIp, () -> {
             BigDecimal amount = validAmount(req.amount());
             String hash = hash(ENDPOINT_WITHDRAW, req.accountId(), null, null, amount, req.description());
-            return idempotent(idempotencyKey, userId, ENDPOINT_WITHDRAW, hash,
-                    () -> requirePinForReplay(req.accountId(), req.pin()),
+            IdempotencyService.validateKey(idempotencyKey);
+            pinVerificationService.verify(userId, req.accountId(), req.pin(), clientIp);
+            return inTransaction(() -> idempotent(idempotencyKey, userId, ENDPOINT_WITHDRAW, hash,
                     () -> lockInOrder(req.accountId(), vaultId()), locked -> {
                 Account customer = requireAccount(locked, req.accountId());
                 Account vault = locked.get(vaultId());
                 requireOwner(customer, userId);
                 requireActive(customer);
                 requireActive(vault);
-                requirePin(customer, req.pin());
                 requireWithinLimitsAndBalance(customer, amount);
 
                 Transaction tx = post(TransactionType.WITHDRAWAL, customer, vault, amount, idempotencyKey, req.description());
                 auditSuccess(userId, tx, "WITHDRAWAL " + amount.toPlainString() + " from " + mask(customer), clientIp);
                 return new TransactionResponse(tx.getId(), tx.getTxType(), amount, null, null,
                         customer.getBalance(), tx.getDescription(), tx.getCreatedAt());
-            });
+            }));
         });
     }
 
-    @Transactional
+    /** 트랜잭션 경계는 메서드 안에서 연다 (PIN 검증을 본 트랜잭션 밖에서 먼저 커밋하기 위해). */
     public TransactionResponse transfer(Long userId, String idempotencyKey, TransferRequest req, String clientIp) {
         return audited(userId, TransactionType.TRANSFER, req.fromAccountId(), clientIp, () -> {
             BigDecimal amount = validAmount(req.amount());
@@ -141,8 +148,9 @@ public class TransactionService {
             if (toId.equals(req.fromAccountId())) {
                 throw new BusinessException(ErrorCode.SAME_ACCOUNT_TRANSFER);
             }
-            return idempotent(idempotencyKey, userId, ENDPOINT_TRANSFER, hash,
-                    () -> requirePinForReplay(req.fromAccountId(), req.pin()),
+            IdempotencyService.validateKey(idempotencyKey);
+            pinVerificationService.verify(userId, req.fromAccountId(), req.pin(), clientIp);
+            return inTransaction(() -> idempotent(idempotencyKey, userId, ENDPOINT_TRANSFER, hash,
                     () -> lockInOrder(req.fromAccountId(), toId), locked -> {
                 Account from = requireAccount(locked, req.fromAccountId());
                 Account to = requireAccount(locked, toId);
@@ -152,7 +160,6 @@ public class TransactionService {
                 requireOwner(from, userId);
                 requireActive(from);
                 requireActive(to);
-                requirePin(from, req.pin());
                 requireWithinLimitsAndBalance(from, amount);
 
                 Transaction tx = post(TransactionType.TRANSFER, from, to, amount, idempotencyKey, req.description());
@@ -160,7 +167,7 @@ public class TransactionService {
                         clientIp);
                 return new TransactionResponse(tx.getId(), tx.getTxType(), amount, from.getId(), mask(to),
                         from.getBalance(), tx.getDescription(), tx.getCreatedAt());
-            });
+            }));
         });
     }
 
@@ -241,25 +248,6 @@ public class TransactionService {
         }
     }
 
-    /**
-     * 재생 경로용 PIN 검증. 계좌 엔티티를 1차 캐시에 올리지 않도록 pin_hash 만 조회한다
-     * (이후 FOR UPDATE 조회가 캐시된 옛 값을 받지 않게).
-     */
-    private void requirePinForReplay(Long accountId, String pin) {
-        String pinHash = accountRepository.findPinHashById(accountId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.ACCOUNT_NOT_FOUND));
-        if (pin == null || !passwordEncoder.matches(pin, pinHash)) {
-            throw new BusinessException(ErrorCode.INVALID_PIN);
-        }
-    }
-
-    /** 기본 PIN 일치 확인. 5회 오류 잠금은 T-008 에서 추가한다. */
-    private void requirePin(Account account, String pin) {
-        if (pin == null || !passwordEncoder.matches(pin, account.getPinHash())) {
-            throw new BusinessException(ErrorCode.INVALID_PIN);
-        }
-    }
-
     /** 출금 계좌가 잠긴 상태에서 계산하므로 같은 계좌의 동시 거래가 한도를 우회할 수 없다. */
     private void requireWithinLimitsAndBalance(Account from, BigDecimal amount) {
         if (amount.compareTo(from.getPerTxLimit()) > 0) {
@@ -279,29 +267,29 @@ public class TransactionService {
     // ---------------------------------------------------------------- 멱등성
 
     /**
-     * 저장된 응답이 있으면 replayGuard 통과 후 재생한다. 없으면 잠금 → (잠금 대기 중 같은 키가 처리됐는지) 재확인
-     * → 실행 → 응답 저장.
-     * <p>PIN 은 요청 해시에 넣지 않으므로(역산 위험), 재생 전에 replayGuard 로 PIN 을 다시 검증해
-     * 같은 키 + 틀린 PIN 으로 성공 응답을 받아내는 우회를 막는다.
+     * 저장된 응답이 있으면 재생한다. 없으면 잠금 → (잠금 대기 중 같은 키가 처리됐는지) 재확인 → 실행 → 응답 저장.
+     * <p>PIN 은 요청 해시에 넣지 않으므로(역산 위험), 출금·이체는 이 메서드 전에 PIN 검증을 통과해야 한다
+     * (같은 키 + 틀린 PIN 으로 성공 응답을 받아내는 우회 차단).
      */
     private TransactionResponse idempotent(String key, Long userId, String endpoint, String hash,
-                                           Runnable replayGuard,
                                            Supplier<Map<Long, Account>> lock,
                                            Function<Map<Long, Account>, TransactionResponse> execute) {
         Optional<TransactionResponse> replay = replay(key, userId, endpoint, hash);
         if (replay.isPresent()) {
-            replayGuard.run();
             return replay.get();
         }
         Map<Long, Account> locked = lock.get();
         replay = replay(key, userId, endpoint, hash);
         if (replay.isPresent()) {
-            replayGuard.run();
             return replay.get();
         }
         TransactionResponse response = execute.apply(locked);
         idempotencyService.saveResponse(key, userId, endpoint, hash, 200, toJson(response));
         return response;
+    }
+
+    private TransactionResponse inTransaction(Supplier<TransactionResponse> body) {
+        return transactionTemplate.execute(status -> body.get());
     }
 
     private Optional<TransactionResponse> replay(String key, Long userId, String endpoint, String hash) {
