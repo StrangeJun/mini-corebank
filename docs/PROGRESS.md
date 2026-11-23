@@ -2,8 +2,11 @@
 
 - **프로젝트**: `mini-corebank` (1금융권 원화 계좌·송금 코어뱅킹 복식부기 원장 시스템)
 - **브랜치 전략**: GitHub Flow (`main` + `feat/T-xxx-*` `--no-ff` 병합 + 마일스톤 태그)
-- **현재 진행 단계**: **마일스톤 2 — `T-010` (예약 이체 및 멱등 스케줄러) [3단계: Copilot 코드 리뷰 중]**
-- **현재 누적 통과 테스트**: **111개** (`./gradlew test`, 실패 0)
+- **현재 진행 단계**: **마일스톤 2 완료 (`119 passed`) → 마일스톤 3 `T-012` (프론트엔드 데모 웹 화면 `frontend/`) [2단계: Claude 개발 중]**
+- **현재 누적 통과 테스트**: **119개** (`./gradlew test`, 실패 0)
+- **에이전트 사용량 현황**:
+  - **Claude (`t8`)**: 5시간 한도 `44%` (잔여 56%), 30일 한도 `12%`, 현재 `frontend/` (`T-012`) 개발 중
+  - **Copilot (`t11`)**: `T-010` 학습자료(`05권`) + `T-011` 마일스톤 2 통합 QA(`119 passed`) 및 `M2-banking-advanced.md` 완료 (대기 중)
 
 ---
 
@@ -12,8 +15,8 @@
 | 마일스톤 | 범위 | 상태 | 완료 Task | 태그 | 누적 테스트 |
 |---|---|---|---|---|---|
 | **M1. 코어 원장 & 안전 이체** | `T-001` ~ `T-007`, `T-007R`, `T-007R-FIX` | **완료** | 8 / 8 | `v0.1.0` | 81 passed |
-| **M2. 1금융권 실무 심화** | `T-008` ~ `T-011` | **진행 중** | 2 / 4 (`T-008`, `T-009` 완료) | 예정 `v0.2.0` | 99 passed |
-| **M3. 웹 데모 & 포트폴리오 마무리** | `T-012` ~ `T-013` | 대기 | 0 / 2 | 예정 `v1.0.0` | - |
+| **M2. 1금융권 실무 심화** | `T-008` ~ `T-011`, `T-011R` | **완료** | 5 / 5 (`T-008`~`T-011` QA·리뷰·학습자료 전부 완료) | 예정 `v0.2.0` | 119 passed |
+| **M3. 웹 데모 & 포트폴리오 마무리** | `T-012` ~ `T-013` | **진행 중 (`T-012` 개발 중)** | 0 / 2 | 예정 `v1.0.0` | - |
 
 ---
 
@@ -30,9 +33,9 @@
 | **T-007** | 마일스톤 1 통합 QA & 코드 리뷰 보강(`T-007R-FIX`) | `feat/T-007-m1-qa` / `fix/T-007R-*` | 완료 | [M1-review.md](reviews/M1-review.md) | 4대 보강 완료 | 완료 (`v0.1.0`) | [M1-core-ledger.md](study/M1-core-ledger.md) | 81 |
 | **T-008** | 계좌 PIN 5회 연속 오류 자동 `LOCKED` & 관리자 해제 | `feat/T-008-pin-lock` | 완료 | [T-008-review.md](reviews/T-008-review.md) | 이슈 0건(LOW 1 기각) | 완료 | [03권](study/03-account-and-transaction-files.md), [M1](study/M1-core-ledger.md) 업데이트 완료 | 90 |
 | **T-009** | 3대 불변식 원장-잔액 정합성 대사(Reconciliation) | `feat/T-009-reconciliation` | 완료 | [T-009-review.md](reviews/T-009-review.md) | V2 인덱스 + 상세 100건 상한 수정 완료 | 완료 | [04권](study/04-reconciliation-files.md), [README](study/README.md) 업데이트 완료 | 99 |
-| **T-010** | 예약 이체 등록·조회·취소 및 도래 건 멱등 스케줄러 | `feat/T-010-scheduled-transfer` | **진행 중** | 대기 | 대기 | 대기 | 대기 (`05권` 예정) | - |
-| **T-011** | 마일스톤 2 통합 QA & 심화 종합 학습자료 | 대기 | - | 대기 | 대기 | 대기 | 대기 (`M2-banking-advanced.md`) | - |
-| **T-012** | React + TypeScript (Vite) 프론트엔드 데모 대시보드 | 대기 | 대기 | 대기 | 대기 | 대기 | 대기 (`06권` 프론트 전 파일 해설) | - |
+| **T-010** | 예약 이체 등록·조회·취소 및 도래 건 멱등 스케줄러 | `feat/T-010-scheduled-transfer` | 완료 | [T-010-review.md](reviews/T-010-review.md) | 3건 보강 완료(`markFailed` 격리, 배치 100건 상한+인덱스, 기존 거래 파라미터 검증) | 완료 | [05권](study/05-scheduled-transfer-files.md), [README](study/README.md) 업데이트 완료 | 115 |
+| **T-011** | 마일스톤 2 통합 QA & 심화 종합 학습자료 | `feat/T-011-m2-qa-study` | 완료 (`119 passed`) | [M2-review.md](reviews/M2-review.md) | CRITICAL/HIGH 0건 (통과) | `T-012` 완료 직후 병합(`v0.2.0`) | [M2-banking-advanced.md](study/M2-banking-advanced.md) 완료 | 119 |
+| **T-012** | React + TypeScript (Vite) 프론트엔드 데모 대시보드 | `feat/T-012-frontend-demo` | **진행 중 (Claude)** | 대기 | 대기 | 대기 | 대기 (`06권` 프론트 전 파일 해설) | - |
 | **T-013** | 마일스톤 3 최종 통합 QA, `README.md` & 풀스택 학습자료 | 대기 | - | 대기 | 대기 | 대기 | 대기 (`M3-fullstack-architecture.md`) | - |
 
 ---

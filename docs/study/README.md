@@ -6,6 +6,7 @@
 - [공통·인증·감사 계층](02-common-auth-audit-files.md): 예외, 멱등성, JWT, 감사, 시드
 - [계좌·트랜잭션 계층](03-account-and-transaction-files.md): 계좌, PIN 잠금, 원장, 이체, 조회
 - [정합성 대사 계층](04-reconciliation-files.md): 3대 불변식, 대사 이력, 스케줄러
+- [예약 이체 계층](05-scheduled-transfer-files.md): PENDING 실행, 실패 격리, 멱등 스케줄러
 - [마일스톤 1 면접 요약](M1-core-ledger.md): 전체 흐름과 핵심 면접 질문
 
 ## 추천 학습 동선
@@ -35,6 +36,7 @@ backend/src/main/
     ├── domain/
     ├── reconciliation/
     ├── seed/
+    ├── scheduled/
     ├── transaction/
     └── user/
 ```
@@ -144,3 +146,15 @@ backend/src/main/
 | [`reconciliation/dto/ReconciliationMismatch.java`](../../backend/src/main/java/com/corebank/reconciliation/dto/ReconciliationMismatch.java) | 불일치 상세 DTO | [04권](04-reconciliation-files.md) |
 | [`reconciliation/dto/ReconciliationRunResponse.java`](../../backend/src/main/java/com/corebank/reconciliation/dto/ReconciliationRunResponse.java) | 대사 실행 상세 응답 | [04권](04-reconciliation-files.md) |
 | [`reconciliation/dto/ReconciliationRunSummary.java`](../../backend/src/main/java/com/corebank/reconciliation/dto/ReconciliationRunSummary.java) | 대사 이력 목록 요약 | [04권](04-reconciliation-files.md) |
+
+## 예약 이체 계층
+
+| 파일 | 역할 | 상세 문서 |
+|---|---|---|
+| [`scheduled/ScheduledTransferService.java`](../../backend/src/main/java/com/corebank/scheduled/ScheduledTransferService.java) | 예약 등록/조회/취소/도래 실행 | [05권](05-scheduled-transfer-files.md) |
+| [`scheduled/ScheduledTransferController.java`](../../backend/src/main/java/com/corebank/scheduled/ScheduledTransferController.java) | 고객 예약 이체 API | [05권](05-scheduled-transfer-files.md) |
+| [`scheduled/AdminScheduledTransferController.java`](../../backend/src/main/java/com/corebank/scheduled/AdminScheduledTransferController.java) | 관리자 도래 실행 API | [05권](05-scheduled-transfer-files.md) |
+| [`scheduled/ScheduledTransferScheduler.java`](../../backend/src/main/java/com/corebank/scheduled/ScheduledTransferScheduler.java) | fixed-delay 예약 배치 | [05권](05-scheduled-transfer-files.md) |
+| [`scheduled/dto/CreateScheduledTransferRequest.java`](../../backend/src/main/java/com/corebank/scheduled/dto/CreateScheduledTransferRequest.java) | 예약 등록 요청 검증 | [05권](05-scheduled-transfer-files.md) |
+| [`scheduled/dto/ScheduledTransferResponse.java`](../../backend/src/main/java/com/corebank/scheduled/dto/ScheduledTransferResponse.java) | 예약 상태 응답 | [05권](05-scheduled-transfer-files.md) |
+| [`scheduled/dto/ScheduledExecutionSummary.java`](../../backend/src/main/java/com/corebank/scheduled/dto/ScheduledExecutionSummary.java) | 배치 실행 요약 | [05권](05-scheduled-transfer-files.md) |
