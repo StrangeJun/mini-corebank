@@ -25,6 +25,10 @@ public interface AccountRepository extends JpaRepository<Account, Long> {
     @Query("select a.id from Account a where a.accountNumber = :accountNumber")
     Optional<Long> findIdByAccountNumber(@Param("accountNumber") String accountNumber);
 
+    /** pin_hash 만 조회한다 (엔티티 미적재). */
+    @Query("select a.pinHash from Account a where a.id = :id")
+    Optional<String> findPinHashById(@Param("id") Long id);
+
     /** 잔액·상태 변경 전 행 잠금 (SELECT ... FOR UPDATE). */
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select a from Account a where a.id = :id")

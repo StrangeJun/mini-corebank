@@ -61,6 +61,7 @@ public class TransactionService {
     static final String ENDPOINT_TRANSFER = "POST /api/transactions/transfer";
     private static final String TARGET_TRANSACTION = "TRANSACTION";
     private static final int MAX_AMOUNT_DIGITS = 19;
+    private static final Runnable NO_REPLAY_GUARD = () -> { };
     private static final EnumSet<TransactionType> OUTGOING_TYPES =
             EnumSet.of(TransactionType.WITHDRAWAL, TransactionType.TRANSFER);
 
@@ -90,7 +91,7 @@ public class TransactionService {
         return audited(userId, TransactionType.DEPOSIT, req.accountId(), clientIp, () -> {
             BigDecimal amount = validAmount(req.amount());
             String hash = hash(ENDPOINT_DEPOSIT, req.accountId(), null, null, amount, req.description());
-            return idempotent(idempotencyKey, userId, ENDPOINT_DEPOSIT, hash,
+            return idempotent(idempotencyKey, userId, ENDPOINT_DEPOSIT, hash, NO_REPLAY_GUARD,
                     () -> lockInOrder(req.accountId(), vaultId()), locked -> {
                 Account customer = requireAccount(locked, req.accountId());
                 Account vault = locked.get(vaultId());
@@ -112,6 +113,7 @@ public class TransactionService {
             BigDecimal amount = validAmount(req.amount());
             String hash = hash(ENDPOINT_WITHDRAW, req.accountId(), null, null, amount, req.description());
             return idempotent(idempotencyKey, userId, ENDPOINT_WITHDRAW, hash,
+                    () -> requirePinForReplay(req.accountId(), req.pin()),
                     () -> lockInOrder(req.accountId(), vaultId()), locked -> {
                 Account customer = requireAccount(locked, req.accountId());
                 Account vault = locked.get(vaultId());
@@ -140,6 +142,7 @@ public class TransactionService {
                 throw new BusinessException(ErrorCode.SAME_ACCOUNT_TRANSFER);
             }
             return idempotent(idempotencyKey, userId, ENDPOINT_TRANSFER, hash,
+                    () -> requirePinForReplay(req.fromAccountId(), req.pin()),
                     () -> lockInOrder(req.fromAccountId(), toId), locked -> {
                 Account from = requireAccount(locked, req.fromAccountId());
                 Account to = requireAccount(locked, toId);
@@ -238,6 +241,18 @@ public class TransactionService {
         }
     }
 
+    /**
+     * 재생 경로용 PIN 검증. 계좌 엔티티를 1차 캐시에 올리지 않도록 pin_hash 만 조회한다
+     * (이후 FOR UPDATE 조회가 캐시된 옛 값을 받지 않게).
+     */
+    private void requirePinForReplay(Long accountId, String pin) {
+        String pinHash = accountRepository.findPinHashById(accountId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.ACCOUNT_NOT_FOUND));
+        if (pin == null || !passwordEncoder.matches(pin, pinHash)) {
+            throw new BusinessException(ErrorCode.INVALID_PIN);
+        }
+    }
+
     /** 기본 PIN 일치 확인. 5회 오류 잠금은 T-008 에서 추가한다. */
     private void requirePin(Account account, String pin) {
         if (pin == null || !passwordEncoder.matches(pin, account.getPinHash())) {
@@ -264,18 +279,24 @@ public class TransactionService {
     // ---------------------------------------------------------------- 멱등성
 
     /**
-     * 저장된 응답이 있으면 재생한다. 없으면 잠금 → (잠금 대기 중 같은 키가 처리됐는지) 재확인 → 실행 → 응답 저장.
+     * 저장된 응답이 있으면 replayGuard 통과 후 재생한다. 없으면 잠금 → (잠금 대기 중 같은 키가 처리됐는지) 재확인
+     * → 실행 → 응답 저장.
+     * <p>PIN 은 요청 해시에 넣지 않으므로(역산 위험), 재생 전에 replayGuard 로 PIN 을 다시 검증해
+     * 같은 키 + 틀린 PIN 으로 성공 응답을 받아내는 우회를 막는다.
      */
     private TransactionResponse idempotent(String key, Long userId, String endpoint, String hash,
+                                           Runnable replayGuard,
                                            Supplier<Map<Long, Account>> lock,
                                            Function<Map<Long, Account>, TransactionResponse> execute) {
         Optional<TransactionResponse> replay = replay(key, userId, endpoint, hash);
         if (replay.isPresent()) {
+            replayGuard.run();
             return replay.get();
         }
         Map<Long, Account> locked = lock.get();
         replay = replay(key, userId, endpoint, hash);
         if (replay.isPresent()) {
+            replayGuard.run();
             return replay.get();
         }
         TransactionResponse response = execute.apply(locked);
