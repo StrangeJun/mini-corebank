@@ -89,6 +89,30 @@ public class Account {
         this.status = AccountStatus.CLOSED;
     }
 
+    /**
+     * PIN 오류 1회 반영. 실패 횟수가 maxFailures 에 도달하면 LOCKED 로 전환한다.
+     *
+     * @return 이번 실패로 잠겼으면 true
+     */
+    public boolean recordPinFailure(int maxFailures) {
+        this.pinFailCount++;
+        if (this.pinFailCount >= maxFailures) {
+            this.status = AccountStatus.LOCKED;
+            return true;
+        }
+        return false;
+    }
+
+    public void resetPinFailures() {
+        this.pinFailCount = 0;
+    }
+
+    /** 관리자 잠금 해제: ACTIVE 복귀 + PIN 실패 횟수 초기화. 해지 계좌 검증은 서비스에서 한다. */
+    public void unlock() {
+        this.status = AccountStatus.ACTIVE;
+        this.pinFailCount = 0;
+    }
+
     @PrePersist
     void onCreate() {
         LocalDateTime now = LocalDateTime.now();

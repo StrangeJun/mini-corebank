@@ -84,7 +84,8 @@ public class IdempotencyService {
                 && Objects.equals(record.getRequestHash(), requestHash);
     }
 
-    private static void validateKey(String key) {
+    /** 키 형식 검증. 부수효과가 있는 선행 단계(PIN 실패 집계 등) 전에 호출할 수 있도록 공개한다. */
+    public static void validateKey(String key) {
         if (key == null || key.isBlank() || key.length() > MAX_KEY_LENGTH) {
             throw new BusinessException(ErrorCode.INVALID_INPUT, "Idempotency-Key 가 올바르지 않습니다.");
         }

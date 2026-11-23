@@ -94,9 +94,10 @@
 1. 오너와 대화해 docs/PRD.md 작성 → 승인
 2. 기술 스택·구조 결정 → 승인 (개발자 Claude에게 선택지 의견을 먼저 받아도 된다)
 3. docs/TASKS.md 에 작업 분해
-4. **Task 단위 개발 → 즉시 코드 리뷰 루프**:
-   - 개발자(Claude)가 각 Task(`T-xxx`)를 "개발 완료"하면, `main`에 병합하기 전에 **즉시 QA(Copilot)에게 해당 Task 변경분 코드 리뷰(`docs/reviews/T-xxx-review.md`)**를 지시한다.
-   - PM은 Copilot의 코드 리뷰(`CRITICAL` / `HIGH` / `MEDIUM` / `LOW`)를 검토하여, 수정이 필요한 항목이 있으면 같은 브랜치에서 Claude(스킬 활용 포함)에게 즉시 수정을 지시하고, 통과 시 커밋 & `main` 병합 후 다음 Task로 넘어간다.
+4. **Task 단위 개발 → 즉시 코드 리뷰 → 수정 완료 후 `/clear` 루프**:
+   - 개발자(Claude)가 각 Task(`T-xxx`)를 "개발 완료"하면, **이 시점에는 `/clear`를 하지 않고 컨텍스트를 유지한 채** 즉시 QA(Copilot)에게 해당 Task 변경분 코드 리뷰(`docs/reviews/T-xxx-review.md`)를 지시한다.
+   - PM은 Copilot의 코드 리뷰(`CRITICAL` / `HIGH` / `MEDIUM` / `LOW`)를 검토하여, 수정이 필요한 항목이 있으면 아직 맥락을 기억하고 있는 Claude에게 같은 브랜치에서 즉시 수정을 지시한다.
+   - **리뷰 및 수정까지 모두 끝나 `main`에 병합하고 다음 Task(`T-yyy`)로 넘어갈 때** `hc keys t8 / c l e a r enter` → `/catchup`을 실행해 컨텍스트를 정리한다.
 5. 마일스톤 QA 및 학습 자료:
    - 마일스톤 마지막 QA Task에서 통합 QA 테스트와 **한눈에 보는 마일스톤 학습 자료(`docs/study/M<n>-*.md`)**를 완성한다.
 6. 마일스톤마다 오너에게 짧게 보고: 완료(테스트·코드리뷰·학습자료 링크) / 남은 일 / 결정 필요 사항

@@ -19,7 +19,7 @@
 
 | ID | 작업 | 담당 | 상태 |
 |---|---|---|---|
-| T-008 | 계좌 비밀번호(PIN) 검증 & 5회 연속 오류 시 자동 `LOCKED`(거래정지) 전환 + 관리자(`ADMIN`) 잠금 해제 API | claude | 대기 |
+| T-008 | 계좌 비밀번호(PIN) 검증 & 5회 연속 오류 시 자동 `LOCKED`(거래정지) 전환 + 관리자(`ADMIN`) 잠금 해제 API | claude | 개발 완료 |
 | T-009 | 원장-잔액 정합성 대사(Reconciliation) 구현 (3대 불변식 검증: 거래별 대차 일치, 계좌 잔액=원장 합계, 전체 Zero-Sum 일치 + 이력 저장/조회 API) | claude | 대기 |
 | T-010 | 예약 이체(Scheduled Transfer) 구현 (등록 시 PIN 검증, 조회·취소 API, 스케줄러 도래 건 멱등 실행 및 잔액/한도/상태 재검증·실패 사유 기록) | claude | 대기 |
 | T-011 | 마일스톤 2 QA — PIN 5회 오류 잠금/해제, 정합성 대사(정상/불일치 탐지), 예약 이체(성공/잔액부족 실패/중복 실행 방지) 테스트 작성 및 실행 | copilot | 대기 |
@@ -43,3 +43,4 @@
 - T-007 QA: 테스트 68개, 통과 68 / 실패 0 / 발견한 문제: 없음
 - T-007R QA: 코드 리뷰 이슈 7건 발견(CRITICAL 1 / HIGH 2 / MEDIUM 3 / LOW 1), 문서 2건 작성 완료
 - T-007R-FIX 개발 완료: ①출금/이체 멱등 재생 전 PIN 재검증(틀린 PIN→401 INVALID_PIN, pin_hash 프로젝션 조회) ②ProductionSecretsGuard: prod 프로필에서 JWT 시크릿·관리자 비밀번호가 기본값/공백이면 기동 차단(yml 기본값 동기화 테스트 포함) ③Flyway V2: 고객계좌 음수잔액 CHECK, idx_transactions_from_status_type_created, idx_ledger_entries_account_created_id ④계좌 개설 시도별 트랜잭션+계좌번호 UNIQUE 충돌 시 재시도(최대 10회), 시드 INSERT 충돌 시 기생성으로 간주 / 변경 파일: backend/src/main/java/com/corebank/{transaction/TransactionService.java, domain/account/AccountRepository.java, config/ProductionSecretsGuard.java, account/AccountService.java, seed/SystemSeedInitializer.java}, db/migration/V2__hardening_constraints_and_indexes.sql, backend/src/test/java/com/corebank/{transaction/TransactionApiTest, config/ProductionSecretsGuardTest, schema/SchemaHardeningTest, account/AccountNumberCollisionTest, seed/SystemSeedInitializerTest}.java / 확인: cd backend && ./gradlew test (81 passed, 경합 테스트 3회 반복 통과)
+- T-008 개발 완료: AccountPinVerificationService(REQUIRES_NEW+noRollbackFor, 계좌 FOR UPDATE 후 소유권→LOCKED/CLOSED→PIN 순 검증, 불일치 시 pin_fail_count+1·PIN_FAIL 감사로그, 5회째 LOCKED 전환·ACCOUNT_LOCKED 감사로그 후 403, 4회까지 401, 성공 시 0 초기화, 타인 계좌는 집계 안 함), 출금·이체는 본 트랜잭션(TransactionTemplate) 진입 전 PIN 검증(자기 교착 방지, 멱등 재생도 검증 통과 필수), POST /api/admin/accounts/{accountId}/unlock(ADMIN, ACTIVE+pin_fail_count 0, 해지 계좌 400, ACCOUNT_UNLOCKED 감사로그, 마스킹 응답) / 변경 파일: backend/src/main/java/com/corebank/{account/AccountPinVerificationService.java, account/AdminAccountController.java, account/dto/AccountUnlockResponse.java, account/AccountService.java, domain/account/Account.java, transaction/TransactionService.java, common/idempotency/IdempotencyService.java}, backend/src/test/java/com/corebank/transaction/PinLockApiTest.java / 확인: cd backend && ./gradlew test (90 passed, PIN 동시 오류·동시성 테스트 3회 반복 통과)
