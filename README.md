@@ -1,70 +1,66 @@
 # mini-corebank
 
-원화 계좌·송금 코어뱅킹 시스템으로, 복식부기 원장과 동시성·멱등성 이체, 정합성 대사, 보안·감사 로그를 검증 가능한 테스트와 간단한 웹 데모로 구현합니다.
+원화 코어뱅킹 포트폴리오 프로젝트다. 복식부기 원장, 동시성·멱등성 이체, PIN 잠금, 정합성 대사, 예약 이체, React 데모 화면을 하나의 검증 가능한 시스템으로 구현했다.
 
-## 핵심 기능
+## 구현 범위
 
-- 회원가입/JWT 로그인과 사용자 역할(`USER`, `ADMIN`)
-- 원화 계좌 개설, 조회, 해지 및 계좌 상태 관리
-- 입금, 출금, 즉시 이체와 예약 이체
-- 복식부기 원장 기반 거래 기록 및 원장-잔액 대사
-- 이체 한도, PIN 검증 및 5회 실패 잠금
-- 멱등성 요청 처리와 감사 로그 마스킹
+### 마일스톤 1 — 코어 원장
 
-## 금융 도메인 설계
+- 회원가입/JWT 로그인/`USER`·`ADMIN` 권한
+- 원화 계좌 개설, 목록/상세 조회, 해지
+- 입금·출금·즉시 이체와 계좌별 거래내역
+- 모든 거래의 `DEBIT`/`CREDIT` 분개 2줄 기록
+- 계좌 ID 정렬 `PESSIMISTIC_WRITE`와 멱등키 재시도 차단
+- `SYSTEM-VAULT` 기반 Zero-Sum 원장
 
-### 복식부기 원장과 시스템 시재
+### 마일스톤 2 — 금융 심화
 
-모든 입금·출금·이체는 `DEBIT`/`CREDIT` 분개 2건을 생성합니다. 외부 입출금의 상대 계정은 `SYSTEM-VAULT`이며, 분개 금액과 `balance_after` 스냅샷을 원장에 기록합니다.
+- PIN 5회 연속 오류 시 계좌 `LOCKED`, 관리자 잠금 해제
+- 거래별 대차, 계좌 잔액-원장 합계, 전체 Zero-Sum 대사
+- 대사 결과 이력과 수동/정기 실행
+- 예약 이체 등록/조회/취소
+- 도래 예약의 행 잠금·내부 멱등키 실행과 `COMPLETED`/`FAILED` 상태 기록
 
-### 대사 불변식
+### 마일스톤 3 — 풀스택 데모
 
-1. 거래별 `SUM(CREDIT) == SUM(DEBIT)`
-2. 계좌별 `accounts.balance == SUM(CREDIT) - SUM(DEBIT)`
-3. 고객 계좌와 `SYSTEM-VAULT`를 포함한 전체 잔액 합계는 `0`
+- React + TypeScript + Vite 인터넷뱅킹 대시보드
+- 계좌 개설/해지, 입출금/즉시 이체, 예약 이체
+- 거래내역, 내 감사 로그, 관리자 대사/감사 로그/잠금 해제
+- 금전 요청에 UUID `Idempotency-Key` 자동 생성
+- 프론트 금액 입력은 원 단위 정수 문자열로 전송
 
-대사 실행 결과는 `PASSED` 또는 불일치를 나타내는 `MISMATCH_FOUND`로 기록합니다.
+## 핵심 아키텍처
 
-### 동시성·멱등성
+```mermaid
+flowchart LR
+    UI[React / TypeScript] -->|JWT + Idempotency-Key| API[Spring Boot REST API]
+    API --> Auth[JWT Security / 소유권]
+    API --> Pin[PIN 검증 / 5회 잠금]
+    API --> Tx[비관적 락 / 멱등성 / BigDecimal]
+    Tx --> Ledger[(PostgreSQL + 복식부기 원장)]
+    Tx --> Audit[(감사 로그)]
+    API --> Recon[3대 불변식 대사]
+    API --> Scheduled[예약 이체 스케줄러]
+```
 
-- 잔액을 변경하는 거래는 대상 계좌의 `id` 오름차순으로 `PESSIMISTIC_WRITE` 락을 획득하여 교차 이체 데드락과 초과 출금을 방지합니다.
-- 금액은 `BigDecimal` 또는 원 단위 정수로 처리하며 소수점 금액은 거부합니다.
-- `Idempotency-Key`와 요청 해시가 일치하면 이전 응답을 재사용하고, 다르면 `409 IDEMPOTENCY_CONFLICT`를 반환합니다.
-
-### 보안과 감사
-
-Spring Security와 Stateless JWT로 인증 및 역할 기반 인가를 수행합니다. 로그인 비밀번호와 계좌 PIN은 BCrypt로 저장하며, 비밀번호/PIN/전체 계좌번호는 응답과 감사 로그에 노출하지 않습니다. 실패 거래가 롤백되어도 비즈니스 감사 로그는 독립 트랜잭션으로 유지됩니다.
+금액은 프론트 입력·백엔드 `BigDecimal`·DB `NUMERIC(19,0)`로 원화 정수 무결성을 유지한다.
 
 ## 기술 스택
 
-- Backend: Java 17, Spring Boot 3.x, Spring Data JPA, Spring Security
-- Database: PostgreSQL 16, Flyway
-- Frontend: React, TypeScript, Vite
-- Test: Gradle Test, Spring Boot Test, H2
+- Backend: Java 17, Spring Boot 3.x, Spring Security, Spring Data JPA, Flyway
+- Database: PostgreSQL 16
+- Frontend: React 18, TypeScript, Vite
+- Test: Gradle/JUnit 5, Spring Boot Test, H2
 - Infra: Docker Compose
-
-## 디렉터리 구조
-
-```text
-mini-corebank/
-├── backend/         # Spring Boot REST API
-├── frontend/        # React + TypeScript 데모
-├── tests/           # QA 자동화 테스트
-├── docs/            # 요구사항, 설계 결정, 작업 명세
-└── docker-compose.yml
-```
-
-핵심 테이블은 `users`, `accounts`, `transactions`, `ledger_entries`, `idempotency_records`, `scheduled_transfers`, `reconciliation_runs`, `audit_logs`입니다.
 
 ## 실행
 
 ```bash
 docker compose up -d
+
 cd backend
 ./gradlew bootRun
 ```
-
-Frontend는 별도 개발 서버로 실행할 수 있습니다.
 
 ```bash
 cd frontend
@@ -72,11 +68,34 @@ npm install
 npm run dev
 ```
 
-## 테스트
+프론트엔드는 기본 `http://localhost:5173`, 백엔드는 `8080` 기준으로 프록시한다.
+
+데모 관리자:
+
+- 이메일: `admin@corebank.com`
+- 비밀번호: `Admin1234!`
+
+운영 환경에서는 기본 관리자 비밀번호와 JWT 시크릿을 환경변수로 교체해야 한다.
+
+## 검증
 
 ```bash
 cd backend
 ./gradlew test
+
+cd frontend
+npm run build
 ```
 
-금융 도메인 필수 시나리오는 [`docs/TEST_PLAN.md`](docs/TEST_PLAN.md)를 따릅니다.
+금융 도메인 필수 시나리오는 [`docs/TEST_PLAN.md`](docs/TEST_PLAN.md)를 참고한다.
+
+## 문서와 학습 자료
+
+- 전체 코드베이스 파일 지도: [`docs/study/README.md`](docs/study/README.md)
+- 스키마/도메인: [`docs/study/01-schema-and-domain-files.md`](docs/study/01-schema-and-domain-files.md)
+- 공통/인증/감사: [`docs/study/02-common-auth-audit-files.md`](docs/study/02-common-auth-audit-files.md)
+- 계좌/거래: [`docs/study/03-account-and-transaction-files.md`](docs/study/03-account-and-transaction-files.md)
+- 대사: [`docs/study/04-reconciliation-files.md`](docs/study/04-reconciliation-files.md)
+- 예약 이체: [`docs/study/05-scheduled-transfer-files.md`](docs/study/05-scheduled-transfer-files.md)
+- 프론트엔드: [`docs/study/06-frontend-files.md`](docs/study/06-frontend-files.md)
+- 풀스택 최종 가이드: [`docs/study/M3-fullstack-architecture.md`](docs/study/M3-fullstack-architecture.md)
