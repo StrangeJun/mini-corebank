@@ -64,6 +64,26 @@ public class ScheduledTransfer {
         this.createdAt = LocalDateTime.now();
     }
 
+    public void complete(Long transactionId, LocalDateTime at) {
+        this.status = ScheduledTransferStatus.COMPLETED;
+        this.executedTransactionId = transactionId;
+        this.executedAt = at;
+    }
+
+    public void fail(String reason, LocalDateTime at) {
+        this.status = ScheduledTransferStatus.FAILED;
+        this.failureReason = reason;
+        this.executedAt = at;
+    }
+
+    public void cancel() {
+        this.status = ScheduledTransferStatus.CANCELED;
+    }
+
+    public boolean isOwnedBy(Long userId) {
+        return this.userId.equals(userId);
+    }
+
     public Long getId() { return id; }
     public Long getUserId() { return userId; }
     public Long getFromAccountId() { return fromAccountId; }

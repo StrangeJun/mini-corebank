@@ -27,6 +27,9 @@ public class IdempotencyService {
 
     static final int MAX_KEY_LENGTH = 100;
 
+    /** 예약 이체 실행용 내부 멱등키 접두사. 클라이언트 키로는 쓸 수 없다 (예약 실행 키 선점 방지). */
+    public static final String SCHEDULED_TX_KEY_PREFIX = "SCHED-TX-";
+
     private final IdempotencyRecordRepository repository;
 
     public IdempotencyService(IdempotencyRecordRepository repository) {
@@ -86,7 +89,8 @@ public class IdempotencyService {
 
     /** 키 형식 검증. 부수효과가 있는 선행 단계(PIN 실패 집계 등) 전에 호출할 수 있도록 공개한다. */
     public static void validateKey(String key) {
-        if (key == null || key.isBlank() || key.length() > MAX_KEY_LENGTH) {
+        if (key == null || key.isBlank() || key.length() > MAX_KEY_LENGTH
+                || key.regionMatches(true, 0, SCHEDULED_TX_KEY_PREFIX, 0, SCHEDULED_TX_KEY_PREFIX.length())) {
             throw new BusinessException(ErrorCode.INVALID_INPUT, "Idempotency-Key 가 올바르지 않습니다.");
         }
     }

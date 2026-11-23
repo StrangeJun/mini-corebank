@@ -27,3 +27,7 @@ corebank:
   reconciliation:
     # 정기 대사 주기 (기본 매일 02:00). "-" 이면 비활성.
     cron: ${RECONCILIATION_CRON:0 0 2 * * *}
+  scheduler:
+    # 도래한 예약 이체 실행 주기(ms). transfer-enabled=false 이면 비활성.
+    transfer-enabled: ${SCHEDULED_TRANSFER_ENABLED:true}
+    transfer-delay-ms: ${SCHEDULED_TRANSFER_DELAY_MS:30000}
