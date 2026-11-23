@@ -22,6 +22,7 @@ public enum ErrorCode {
     USER_NOT_FOUND(HttpStatus.NOT_FOUND, "사용자를 찾을 수 없습니다."),
     ACCOUNT_NOT_FOUND(HttpStatus.NOT_FOUND, "계좌를 찾을 수 없습니다."),
     SCHEDULED_TRANSFER_NOT_FOUND(HttpStatus.NOT_FOUND, "예약 이체를 찾을 수 없습니다."),
+    RECONCILIATION_RUN_NOT_FOUND(HttpStatus.NOT_FOUND, "대사 실행 이력을 찾을 수 없습니다."),
 
     DUPLICATE_EMAIL(HttpStatus.CONFLICT, "이미 가입된 이메일입니다."),
     IDEMPOTENCY_CONFLICT(HttpStatus.CONFLICT, "같은 멱등키로 다른 요청이 이미 처리되었습니다."),

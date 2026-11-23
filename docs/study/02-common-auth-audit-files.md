@@ -83,9 +83,10 @@
 - **핵심 메서드:** `hashRequest`, `findReplay`, `saveResponse`, `matches`, `validateKey`
 - **핵심 흐름:**
   1. 1~100자 키를 검증한다.
-  2. 키로 기존 레코드를 조회한다.
-  3. 사용자/엔드포인트/요청 해시 중 하나라도 다르면 `409 IDEMPOTENCY_CONFLICT`를 던진다.
-  4. 성공 처리와 같은 트랜잭션에서 응답을 `saveAndFlush`한다.
+  2. 출금/이체는 먼저 `AccountPinVerificationService`로 소유권·상태·PIN을 독립 트랜잭션에서 검증한다.
+  3. 그 뒤 본 거래 트랜잭션에서 키로 기존 레코드를 조회한다.
+  4. 사용자/엔드포인트/요청 해시 중 하나라도 다르면 `409 IDEMPOTENCY_CONFLICT`를 던진다.
+  5. 성공 처리와 같은 트랜잭션에서 응답을 `saveAndFlush`한다.
 - **동시성:** UNIQUE insert 충돌을 잡아 다른 동시 요청을 충돌로 롤백한다.
 - **연결:** `TransactionService`, `idempotency_records`
 - **면접 포인트:** 멱등키와 락의 차이는 무엇인가? 멱등키는 재시도 동일성, 락은 동시 잔액 경합을 막는다.

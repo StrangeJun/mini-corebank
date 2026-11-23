@@ -73,7 +73,7 @@ ledgerEntryRepository.save(new LedgerEntry(... CREDIT ...));
 - 거래 헤더 1건을 먼저 만들고 분개가 같은 테이블에서 참조하도록 한다.
 - Debit 계좌는 잔액을 감소하고 그 시점의 `balance_after`를 분개에 저장한다.
 - Credit 계좌는 잔액을 증가하고 두 분개 금액 합이 거래 금액과 같다.
-- 세 엔티티의 변경과 멱등성 기록은 하나의 `@Transactional`로 커밋된다.
+- 입금은 `@Transactional`로 커밋되고, 출금/이체는 PIN 검증 완료 뒤 열린 `TransactionTemplate` 본 거래 트랜잭션 안에서 원장과 멱등성 기록을 원자적으로 커밋한다.
 
 ## 3. 동시성 제어와 데드락 방지
 
@@ -109,34 +109,73 @@ sequenceDiagram
 
 ## 4. 멱등성과 SHA-256
 
-네트워크 타임아웃이 발생하면 같은 요청이 재전송될 수 있다.
+네트워크 타임아웃이 발생하면 같은 요청이 재전송될 수 있다. 출금/이체의 최신 실행 순서는 다음과 같다.
 
 ```mermaid
 flowchart TD
-    R[동일 키 요청] --> V1[1차 멱등키 조회]
+    R[동일 키 출금/이체 요청] --> Key[Idempotency-Key 형식 검증]
+    Key --> Pin[AccountPinVerificationService 선검증]
+    Pin -->|틀림| FailCount[실패 횟수 +1 + 독립 감사 로그]
+    FailCount -->|5회 도달| Locked[계좌 LOCKED]
+    FailCount -->|1~4회| InvalidPin[401 INVALID_PIN]
+    Pin -->|정상| Reset[실패 횟수 필요 시 0 초기화]
+    Reset --> Template[TransactionTemplate 본 거래 트랜잭션]
+    Template --> V1[1차 멱등키 조회]
     V1 -->|일치 응답 있음| Replay[저장 응답 재생]
-    V1 -->|없음| Lock[계좌 ID 순서 잠금]
+    V1 -->|없음| Lock[계좌 ID 오름차순 PESSIMISTIC_WRITE]
     Lock --> V2[잠금 후 2차 멱등키 조회]
     V2 -->|일치 응답 있음| Replay
-    V2 -->|없음| Biz[금액·잔액·PIN 검증]
+    V2 -->|없음| Biz[금액·잔액·한도 검증]
     Biz --> Tx[거래 + 분개 + 감사 로그]
     Tx --> Save[멱등 응답 저장]
-    Save --> Commit[트랜잭션 커밋]
+    Save --> Commit[본 거래 트랜잭션 커밋]
 ```
 
-요청 해시는 계좌, 대상, 금액, 설명 등의 핵심 필드를 문자열로 결합해 SHA-256으로 만든다. PIN은 별도로 해시 입력에서 제외한다. 현재 구현의 주의점은 PIN은 응답 재생 전에 별도 검증이 필요하도록 멱등성 흐름을 보강해야 한다는 것이다. 자세한 위험은 리뷰 문서의 `RV-M1-02`를 확인한다.
+요청 해시는 계좌, 대상, 금액, 설명 등의 핵심 필드를 문자열로 결합해 SHA-256으로 만든다. PIN은 해시 입력에서 제외하되, PIN 검증 자체는 멱등 응답 재생보다 먼저 독립 트랜잭션에서 수행한다. 따라서 T-007R-FIX로 발견했던 RV-M1-02는 해결됐다. 잘못된 PIN을 다시 보내도 이전 성공 응답이 재생되지 않고 실제 PIN 검증 단계에서 거절된다.
+
+## PIN 5회 잠금과 자기교착 방지
+
+```mermaid
+sequenceDiagram
+    participant C as Controller
+    participant Tx as TransactionTemplate
+    participant Pin as AccountPinVerificationService REQUIRES_NEW
+    participant DB as PostgreSQL
+    C->>Pin: 출금/이체 요청
+    Pin->>DB: 대상 계좌 PESSIMISTIC_WRITE 잠금
+    alt PIN 불일치
+        Pin->>DB: pin_fail_count +1
+        alt 5회 미만
+            Pin-->>C: 401 INVALID_PIN
+        else 5회 도달
+            Pin->>DB: status=LOCKED
+            Pin-->>C: 403 ACCOUNT_LOCKED
+        end
+    else PIN 일치
+        Pin->>DB: pin_fail_count=0 필요 시 초기화
+        Pin-->>Tx: 검증 커밋 완료
+        Tx->>DB: 본 거래 계좌 잠금
+        Tx->>DB: 멱등 재조회·거래·분개·감사 커밋
+    end
+```
+
+잘못된 트랜잭션 경계는 본 출금 트랜잭션이 계좌 행을 먼저 잠근 뒤 `REQUIRES_NEW` PIN 검증도 같은 행을 잠그는 방식이다. 이 경우 바깥 트랜잭션이 같은 행을 기다리며 종료하지 못할 수 있고, PIN 검증 트랜잭션도 바깥 커밋을 기다리는 자기교착(Self-Deadlock)이 생길 수 있다.
+
+최신 구조에서는 `AccountPinVerificationService.verify()`가 `REQUIRES_NEW + noRollbackFor=BusinessException`으로 먼저 실행되고 계좌 잠금도 이 독립 트랜잭션 안에서 완료된다. 그 트랜잭션이 커밋되거나 예외를 보정해 종료된 뒤에야 `TransactionTemplate`이 본 거래의 계좌 잠금을 획득한다.
 
 ## 5. 트랜잭션 전파와 감사 로그
 
 ```mermaid
 sequenceDiagram
     participant C as Controller
-    participant T as TransactionService @Transactional
+    participant Pin as AccountPinVerificationService REQUIRES_NEW
+    participant T as TransactionTemplate 본 거래
     participant A as AuditLogService
     participant DB as PostgreSQL
-    C->>T: 출금 요청
-    T->>DB: 계좌 잠금
-    alt 잔액 부족/PIN 오류
+    C->>Pin: 출금 요청
+    Pin->>DB: 계좌 PESSIMISTIC_WRITE·실패 카운트
+    Pin-->>T: 검증 완료 후 본 거래 진입
+    alt 잔액 부족
         T->>A: logIndependent(REQUIRES_NEW)
         A->>DB: 감사 로그 즉시 커밋
         T-->>C: BusinessException
