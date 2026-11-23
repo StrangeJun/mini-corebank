@@ -25,7 +25,7 @@
 
 - **요약/레이어:** 데이터베이스 무결성 강화 마이그레이션
 - **설계 의도:** 애플리케이션 우회와 조회 성능을 DB 레벨에서 보강한다.
-- **핵심 제약/인덱스:** 고객 계좌 음수 잔액 CHECK, 일일 한도 복합 인덱스 `idx_transactions_from_status_type_created`, 거래내역 최신순 복합 인덱스 `idx_ledger_entries_account_created_id`, 대사 거래별 조인 인덱스 `idx_ledger_entries_transaction_id`
+- **핵심 제약/인덱스:** 고객 계좌 음수 잔액 CHECK, 일일 한도 복합 인덱스 `idx_transactions_from_status_type_created`, 거래내역 최신순 복합 인덱스 `idx_ledger_entries_account_created_id`, 대사 거래별 조인 인덱스 `idx_ledger_entries_transaction_id`, 도래 예약 조회 인덱스 `idx_scheduled_transfers_status_scheduled_id(status, scheduled_at, id)`
 - **설계 의도:** PostgreSQL은 외래키 컬럼에 인덱스를 자동 생성하지 않으므로 대사와 누락 분개 검사를 위한 `ledger_entries.transaction_id` 인덱스를 별도로 만든다.
 - **연결:** `Account`, `TransactionRepository.sumOutgoing`, `TransactionHistoryService`, `ReconciliationChecker`
 - **면접 포인트:** 애플리케이션 검증만으로 충분하지 않은 이유는 직접 SQL이나 배치가 제약을 우회할 수 있기 때문이다.
